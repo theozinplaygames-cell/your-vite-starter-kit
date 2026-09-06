@@ -100,7 +100,7 @@ function AuthPage() {
       const { error: err } = await supabase.auth.verifyOtp({
         email,
         token: code.trim(),
-        type: "email",
+        type: verifyType,
       });
       if (err) throw err;
       navigate({ to: "/", replace: true });
@@ -116,8 +116,16 @@ function AuthPage() {
     setMessage(null);
     setBusy(true);
     try {
-      const { error: err } = await supabase.auth.resend({ type: "signup", email });
-      if (err) throw err;
+      if (verifyType === "signup") {
+        const { error: err } = await supabase.auth.resend({ type: "signup", email });
+        if (err) throw err;
+      } else {
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false },
+        });
+        if (err) throw err;
+      }
       setMessage("Enviamos um novo código para o seu e-mail.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível reenviar o código.");
@@ -204,10 +212,12 @@ function AuthPage() {
           ← Atlas Quiz
         </Link>
         <h1 className="font-display mt-2 text-3xl font-bold">
-          {mode === "signin" ? "Entrar" : "Criar conta"}
+          {mode === "signin" ? "Entrar" : mode === "code" ? "Entrar com código" : "Criar conta"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sua conta guarda seu apelido e libera os duelos 1x1.
+          {mode === "code"
+            ? "Receba um código de 6 dígitos no seu e-mail, sem senha."
+            : "Sua conta guarda seu apelido e libera os duelos 1x1."}
         </p>
       </div>
 
@@ -234,18 +244,20 @@ function AuthPage() {
             className="input-field"
           />
         </Field>
-        <Field label="Senha">
-          <input
-            type="password"
-            required
-            minLength={6}
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            placeholder="Mínimo de 6 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="input-field"
-          />
-        </Field>
+        {mode !== "code" && (
+          <Field label="Senha">
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              placeholder="Mínimo de 6 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+            />
+          </Field>
+        )}
 
         {error && <p className="text-sm font-medium text-wrong">{error}</p>}
         {message && <p className="text-sm font-medium text-correct">{message}</p>}
