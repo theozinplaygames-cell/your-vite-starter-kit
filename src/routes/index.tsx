@@ -90,8 +90,11 @@ function Game() {
           label: "Idioma",
           value: target.languages.length ? target.languages.join(", ") : "Sem idioma oficial",
         },
+        { label: "Continente", value: target.region },
+        { label: "Região", value: target.subregion },
       ]
     : [];
+
 
   const outlineIds =
     target && hints >= 2
