@@ -21,8 +21,8 @@ export type Database = {
           created_at: string
           duel_id: string
           id: string
+          idx: number
           player_id: string
-          round: number
         }
         Insert: {
           correct: boolean
@@ -30,8 +30,8 @@ export type Database = {
           created_at?: string
           duel_id: string
           id?: string
+          idx: number
           player_id: string
-          round: number
         }
         Update: {
           correct?: boolean
@@ -39,8 +39,8 @@ export type Database = {
           created_at?: string
           duel_id?: string
           id?: string
+          idx?: number
           player_id?: string
-          round?: number
         }
         Relationships: [
           {
@@ -57,11 +57,15 @@ export type Database = {
           code: string
           countries: string[]
           created_at: string
-          current_round: number
-          guest_id: string | null
+          duration_seconds: number
+          ends_at: string | null
           host_id: string
           id: string
           is_public: boolean
+          max_players: number
+          mode: string
+          player_ids: string[]
+          started_at: string | null
           status: string
           updated_at: string
           winner_id: string | null
@@ -70,11 +74,15 @@ export type Database = {
           code: string
           countries?: string[]
           created_at?: string
-          current_round?: number
-          guest_id?: string | null
+          duration_seconds?: number
+          ends_at?: string | null
           host_id: string
           id?: string
           is_public?: boolean
+          max_players?: number
+          mode?: string
+          player_ids?: string[]
+          started_at?: string | null
           status?: string
           updated_at?: string
           winner_id?: string | null
@@ -83,11 +91,15 @@ export type Database = {
           code?: string
           countries?: string[]
           created_at?: string
-          current_round?: number
-          guest_id?: string | null
+          duration_seconds?: number
+          ends_at?: string | null
           host_id?: string
           id?: string
           is_public?: boolean
+          max_players?: number
+          mode?: string
+          player_ids?: string[]
+          started_at?: string | null
           status?: string
           updated_at?: string
           winner_id?: string | null
@@ -117,9 +129,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_duel_player: {
+      join_duel: {
         Args: { _duel_id: string; _user_id: string }
-        Returns: boolean
+        Returns: string
       }
     }
     Enums: {
