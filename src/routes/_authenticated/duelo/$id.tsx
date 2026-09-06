@@ -1,21 +1,24 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { WorldMap } from "@/components/WorldMap";
 import { countryById } from "@/lib/geo";
 import { supabase } from "@/integrations/supabase/client";
-import { cancelDuel, submitGuess } from "@/lib/duel.functions";
+import { cancelDuel, finishDuel, startDuel, submitGuess } from "@/lib/duel.functions";
 
 export const Route = createFileRoute("/_authenticated/duelo/$id")({
   head: () => ({
     meta: [
-      { title: "Partida 1x1 — Atlas Quiz" },
+      { title: "Partida ao vivo — Atlas Quiz" },
       {
         name: "description",
-        content: "Duelo ao vivo: 5 países, dois jogadores, um mapa-múndi.",
+        content: "1 minuto no relógio: encontre o máximo de países no mapa antes dos adversários.",
       },
-      { property: "og:title", content: "Partida 1x1 — Atlas Quiz" },
-      { property: "og:description", content: "Duelo ao vivo de geografia no mapa-múndi." },
+      { property: "og:title", content: "Partida ao vivo — Atlas Quiz" },
+      {
+        property: "og:description",
+        content: "Corrida de 1 minuto no mapa-múndi contra até 9 adversários.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -23,51 +26,56 @@ export const Route = createFileRoute("/_authenticated/duelo/$id")({
   component: DuelPage,
 });
 
-const ROUNDS = 5;
-
 type Duel = {
   id: string;
   code: string;
   host_id: string;
-  guest_id: string | null;
+  mode: string;
+  max_players: number;
+  player_ids: string[];
   countries: string[];
-  current_round: number;
   status: string;
+  ends_at: string | null;
   winner_id: string | null;
 };
 
-type Guess = {
-  round: number;
-  player_id: string;
-  country_id: string;
-  correct: boolean;
-};
+type Guess = { idx: number; player_id: string; correct: boolean };
 
 function DuelPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const guessFn = useServerFn(submitGuess);
   const cancelFn = useServerFn(cancelDuel);
+  const startFn = useServerFn(startDuel);
+  const finishFn = useServerFn(finishDuel);
 
   const [me, setMe] = useState<string | null>(null);
   const [duel, setDuel] = useState<Duel | null>(null);
   const [guesses, setGuesses] = useState<Guess[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ correct: boolean; answer: string } | null>(null);
+  const [myCount, setMyCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const finishing = useRef(false);
 
   const loadDuel = useCallback(async () => {
-    const { data } = await supabase.from("duels").select("*").eq("id", id).maybeSingle();
-    if (data) setDuel(data as Duel);
+    const { data } = await supabase
+      .from("duels")
+      .select("id, code, host_id, mode, max_players, player_ids, countries, status, ends_at, winner_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (data) setDuel(data);
   }, [id]);
 
   const loadGuesses = useCallback(async () => {
     const { data } = await supabase
       .from("duel_guesses")
-      .select("round, player_id, country_id, correct")
+      .select("idx, player_id, correct")
       .eq("duel_id", id);
-    if (data) setGuesses(data as Guess[]);
+    if (data) setGuesses(data);
   }, [id]);
 
   useEffect(() => {
@@ -92,15 +100,21 @@ function DuelPage() {
     };
   }, [id, loadDuel, loadGuesses]);
 
-  // Enquanto espera adversário, confere periodicamente (fallback do tempo real).
+  // Relógio da partida.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+
+  // Fallback do tempo real enquanto a sala espera jogadores.
   useEffect(() => {
     if (!duel || duel.status !== "waiting") return;
-    const t = setInterval(() => void loadDuel(), 3000);
+    const t = setInterval(() => void loadDuel(), 2500);
     return () => clearInterval(t);
   }, [duel, loadDuel]);
 
   useEffect(() => {
-    const ids = duel ? [duel.host_id, duel.guest_id].filter(Boolean) as string[] : [];
+    const ids = duel?.player_ids ?? [];
     if (!ids.length) return;
     supabase
       .from("profiles")
@@ -108,36 +122,57 @@ function DuelPage() {
       .in("id", ids)
       .then(({ data }) => {
         if (!data) return;
-        setNames(Object.fromEntries(data.map((p) => [p.id as string, p.username as string])));
+        setNames(Object.fromEntries(data.map((p) => [p.id, p.username])));
       });
   }, [duel]);
 
-  const round = duel?.current_round ?? 1;
-  const myGuess = useMemo(
-    () => guesses.find((g) => g.round === round && g.player_id === me) ?? null,
-    [guesses, round, me],
-  );
-  const opponentId = duel ? (duel.host_id === me ? duel.guest_id : duel.host_id) : null;
-  const scoreOf = (pid: string | null) =>
-    pid ? guesses.filter((g) => g.player_id === pid && g.correct).length : 0;
+  // Sincroniza o contador local com o servidor.
+  useEffect(() => {
+    if (!me) return;
+    const mine = guesses.filter((g) => g.player_id === me).length;
+    setMyCount((c) => Math.max(c, mine));
+  }, [guesses, me]);
+
+  const remaining = duel?.ends_at
+    ? Math.max(0, Math.ceil((new Date(duel.ends_at).getTime() - now) / 1000))
+    : null;
+
+  // Encerra a partida assim que o tempo zera.
+  useEffect(() => {
+    if (!duel || duel.status !== "playing" || remaining === null || remaining > 0) return;
+    if (finishing.current) return;
+    finishing.current = true;
+    void finishFn({ data: { duelId: duel.id } })
+      .then(() => loadDuel())
+      .finally(() => {
+        finishing.current = false;
+      });
+  }, [duel, remaining, finishFn, loadDuel]);
+
+  const scores = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const pid of duel?.player_ids ?? []) map.set(pid, 0);
+    for (const g of guesses) if (g.correct) map.set(g.player_id, (map.get(g.player_id) ?? 0) + 1);
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [guesses, duel]);
 
   const finished = duel?.status === "finished";
-  const lastFinishedRound = finished ? ROUNDS : round - 1;
-  const revealRound = myGuess && !finished ? round : lastFinishedRound;
-  const revealAnswer = duel && revealRound >= 1 ? duel.countries[revealRound - 1] : undefined;
-  const revealGuesses = guesses.filter((g) => g.round === revealRound);
-  const bothAnswered = revealGuesses.length >= 2;
-
-  const target = duel && !finished ? countryById.get(duel.countries[round - 1] ?? "") : undefined;
+  const playing = duel?.status === "playing" && (remaining ?? 0) > 0;
+  const target = duel && playing ? countryById.get(duel.countries[myCount] ?? "") : undefined;
 
   const send = async () => {
-    if (!selected || !duel) return;
+    if (!selected || !duel || busy || feedback) return;
     setBusy(true);
     setError(null);
+    const idx = myCount;
     try {
-      await guessFn({ data: { duelId: duel.id, countryId: selected } });
-      await loadGuesses();
-      await loadDuel();
+      const res = await guessFn({ data: { duelId: duel.id, idx, countryId: selected } });
+      setFeedback({ correct: res.correct, answer: res.answer });
+      setTimeout(() => {
+        setFeedback(null);
+        setSelected(null);
+        setMyCount((c) => Math.max(c, idx + 1));
+      }, 700);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar.");
     } finally {
@@ -145,48 +180,82 @@ function DuelPage() {
     }
   };
 
-  useEffect(() => {
-    setSelected(null);
-  }, [round]);
-
   if (!duel) {
     return (
       <main className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Carregando duelo...
+        Carregando partida...
       </main>
     );
   }
 
-  const waiting = duel.status === "waiting";
+  const isHost = duel.host_id === me;
+  const modeLabel = duel.mode === "ffa" ? "Todos contra todos" : "Duelo 1x1";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 md:py-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link to="/duelo" className="text-xs uppercase tracking-[0.35em] text-accent">
-            ← Duelos
+            ← Salas
           </Link>
-          <h1 className="font-display mt-1 text-3xl font-bold">Duelo 1x1</h1>
+          <h1 className="font-display mt-1 text-3xl font-bold">{modeLabel}</h1>
         </div>
-        <div className="flex gap-3">
-          <Stat label={names[duel.host_id] ?? "Anfitrião"} value={scoreOf(duel.host_id)} />
-          <Stat
-            label={duel.guest_id ? (names[duel.guest_id] ?? "Adversário") : "Aguardando"}
-            value={scoreOf(duel.guest_id)}
-          />
-          <Stat label="Rodada" value={Math.min(round, ROUNDS)} />
+        <div className="flex items-center gap-3">
+          <div className="panel px-5 py-2 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tempo</p>
+            <p
+              className={`font-display text-2xl font-bold ${
+                (remaining ?? 60) <= 10 ? "text-wrong" : ""
+              }`}
+            >
+              {remaining === null ? "1:00" : `0:${String(remaining).padStart(2, "0")}`}
+            </p>
+          </div>
+          <div className="panel px-5 py-2 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              Seus acertos
+            </p>
+            <p className="font-display text-2xl font-bold">
+              {me ? (scores.find(([pid]) => pid === me)?.[1] ?? 0) : 0}
+            </p>
+          </div>
         </div>
       </header>
 
-      {waiting ? (
+      {duel.status === "waiting" ? (
         <div className="panel flex flex-col items-center gap-3 p-10 text-center">
-          <p className="font-display text-2xl font-bold">Esperando um adversário…</p>
-          <p className="text-sm text-muted-foreground">
-            Compartilhe o código da sala para alguém entrar:
+          <p className="font-display text-2xl font-bold">
+            Esperando jogadores… ({duel.player_ids.length}/{duel.max_players})
           </p>
+          <p className="text-sm text-muted-foreground">Código da sala:</p>
           <p className="font-display text-4xl font-bold tracking-[0.4em] text-accent">
             {duel.code}
           </p>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            {duel.player_ids.map((pid) => (
+              <span
+                key={pid}
+                className="rounded-full border border-border bg-secondary/40 px-3 py-1 text-sm"
+              >
+                {names[pid] ?? "Jogador"}
+              </span>
+            ))}
+          </div>
+          {isHost && duel.player_ids.length >= 2 && (
+            <button
+              onClick={async () => {
+                try {
+                  await startFn({ data: { duelId: duel.id } });
+                  await loadDuel();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Não foi possível começar.");
+                }
+              }}
+              className="font-display mt-3 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground"
+            >
+              Começar agora
+            </button>
+          )}
           <button
             onClick={async () => {
               await cancelFn({ data: { duelId: duel.id } });
@@ -194,8 +263,9 @@ function DuelPage() {
             }}
             className="mt-2 text-sm text-muted-foreground hover:text-foreground"
           >
-            Cancelar sala
+            Sair da sala
           </button>
+          {error && <p className="text-sm text-wrong">{error}</p>}
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
@@ -203,33 +273,28 @@ function DuelPage() {
             <WorldMap
               selected={selected}
               onSelect={(cid) => {
-                if (!myGuess && !finished) setSelected(cid);
+                if (playing && !feedback) setSelected(cid);
               }}
-              disabled={Boolean(myGuess) || finished}
-              correctId={bothAnswered ? (revealAnswer ?? null) : null}
-              wrongId={
-                bothAnswered && myGuess && !myGuess.correct ? myGuess.country_id : null
-              }
-              resetKey={round}
+              disabled={!playing || Boolean(feedback)}
+              correctId={feedback ? feedback.answer : null}
+              wrongId={feedback && !feedback.correct ? selected : null}
+              resetKey={myCount}
             />
           </section>
 
           <aside className="flex flex-col gap-4">
             <div className="panel p-5">
-              {finished ? (
+              {finished || !playing ? (
                 <>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Fim do duelo
+                    Fim da partida
                   </p>
                   <p className="font-display mt-1 text-2xl font-bold text-primary">
                     {duel.winner_id === null
                       ? "Empate!"
                       : duel.winner_id === me
                         ? "Você venceu!"
-                        : "Você perdeu"}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {scoreOf(duel.host_id)} × {scoreOf(duel.guest_id)}
+                        : `${names[duel.winner_id] ?? "Adversário"} venceu`}
                   </p>
                   <Link
                     to="/duelo"
@@ -241,24 +306,26 @@ function DuelPage() {
               ) : (
                 <>
                   <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Rodada {round} de {ROUNDS} — encontre no mapa
+                    Encontre no mapa
                   </p>
                   <p className="font-display mt-1 text-2xl font-bold text-primary">
                     {target?.name ?? "..."}
                   </p>
                   <p className="mt-3 text-sm text-muted-foreground">
-                    {myGuess
-                      ? "Palpite enviado. Esperando o adversário…"
+                    {feedback
+                      ? feedback.correct
+                        ? "Acertou!"
+                        : `Era ${countryById.get(feedback.answer)?.name ?? "outro país"}`
                       : selected
-                        ? "País selecionado. Confirme sua resposta."
+                        ? "País selecionado. Confirme."
                         : "Clique em um país no mapa."}
                   </p>
                   <button
                     onClick={send}
-                    disabled={!selected || Boolean(myGuess) || busy}
+                    disabled={!selected || busy || Boolean(feedback)}
                     className="font-display mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {myGuess ? "Aguardando…" : "Enviar palpite"}
+                    Enviar palpite
                   </button>
                 </>
               )}
@@ -266,54 +333,27 @@ function DuelPage() {
             </div>
 
             <div className="panel p-5">
-              <p className="font-display text-sm font-semibold">Rodadas</p>
+              <p className="font-display text-sm font-semibold">Placar ao vivo</p>
               <div className="mt-3 flex flex-col gap-2">
-                {Array.from({ length: ROUNDS }, (_, i) => i + 1).map((r) => {
-                  const answer = duel.countries[r - 1];
-                  const mine = guesses.find((g) => g.round === r && g.player_id === me);
-                  const theirs = guesses.find((g) => g.round === r && g.player_id === opponentId);
-                  const done = Boolean(mine && theirs);
-                  return (
-                    <div
-                      key={r}
-                      className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {r}. {done ? (countryById.get(answer ?? "")?.name ?? "—") : "•••"}
-                      </span>
-                      <span className="flex gap-2">
-                        <Dot ok={mine?.correct} shown={done} />
-                        <Dot ok={theirs?.correct} shown={done} />
-                      </span>
-                    </div>
-                  );
-                })}
+                {scores.map(([pid, value], i) => (
+                  <div
+                    key={pid}
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
+                      pid === me ? "border-accent/60 bg-accent/10" : "border-border bg-secondary/40"
+                    }`}
+                  >
+                    <span className="truncate">
+                      {i + 1}. {names[pid] ?? "Jogador"}
+                      {pid === me ? " (você)" : ""}
+                    </span>
+                    <span className="font-display font-bold">{value}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </aside>
         </div>
       )}
     </main>
-  );
-}
-
-function Dot({ ok, shown }: { ok?: boolean | undefined; shown: boolean }) {
-  return (
-    <span
-      className={`inline-block h-3 w-3 rounded-full ${
-        !shown ? "bg-muted-foreground/30" : ok ? "bg-correct" : "bg-wrong"
-      }`}
-    />
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="panel px-4 py-2 text-center">
-      <p className="max-w-[110px] truncate text-[10px] uppercase tracking-widest text-muted-foreground">
-        {label}
-      </p>
-      <p className="font-display text-xl font-bold">{value}</p>
-    </div>
   );
 }
