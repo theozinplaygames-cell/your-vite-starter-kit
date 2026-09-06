@@ -142,3 +142,162 @@
     color: var(--color-foreground);
   }
 }
+
+/* ---- Atlas quiz design system ---- */
+:root {
+  --background: oklch(0.19 0.035 250);
+  --foreground: oklch(0.96 0.01 250);
+  --card: oklch(0.24 0.038 252);
+  --card-foreground: oklch(0.96 0.01 250);
+  --popover: oklch(0.24 0.038 252);
+  --popover-foreground: oklch(0.96 0.01 250);
+  --primary: oklch(0.8 0.16 78);
+  --primary-foreground: oklch(0.22 0.04 260);
+  --secondary: oklch(0.3 0.04 252);
+  --secondary-foreground: oklch(0.96 0.01 250);
+  --muted: oklch(0.28 0.035 252);
+  --muted-foreground: oklch(0.72 0.025 250);
+  --accent: oklch(0.72 0.12 195);
+  --accent-foreground: oklch(0.2 0.04 250);
+  --destructive: oklch(0.62 0.2 22);
+  --destructive-foreground: oklch(0.98 0.01 250);
+  --border: oklch(0.35 0.035 252);
+  --input: oklch(0.35 0.035 252);
+  --ring: oklch(0.8 0.16 78);
+  --radius: 0.9rem;
+
+  --ocean: oklch(0.24 0.05 245);
+  --land: oklch(0.42 0.035 235);
+  --land-hover: oklch(0.55 0.05 230);
+  --land-stroke: oklch(0.24 0.05 245);
+  --selected: oklch(0.8 0.16 78);
+  --correct: oklch(0.72 0.17 150);
+  --wrong: oklch(0.62 0.2 22);
+  --hint: oklch(0.72 0.12 195);
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-ocean: var(--ocean);
+  --color-land: var(--land);
+  --color-hint: var(--hint);
+  --color-correct: var(--correct);
+  --color-wrong: var(--wrong);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+body {
+  font-family: var(--font-body);
+  background-image:
+    radial-gradient(900px 500px at 15% -10%, oklch(0.34 0.07 250 / 0.55), transparent 70%),
+    radial-gradient(700px 450px at 95% 0%, oklch(0.35 0.08 200 / 0.4), transparent 70%);
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.country {
+  fill: var(--land);
+  stroke: var(--land-stroke);
+  stroke-width: 0.6;
+  transition:
+    fill 140ms ease,
+    stroke 140ms ease;
+}
+.country:hover {
+  fill: var(--land-hover);
+}
+.country[data-state="hint"] {
+  fill: color-mix(in oklab, var(--hint) 38%, var(--land));
+}
+.country[data-state="selected"] {
+  fill: var(--selected);
+  stroke: oklch(1 0 0 / 0.7);
+  stroke-width: 1;
+}
+.country[data-state="correct"] {
+  fill: var(--correct);
+  stroke: oklch(1 0 0 / 0.8);
+  stroke-width: 1.2;
+}
+.country[data-state="wrong"] {
+  fill: var(--wrong);
+  stroke: oklch(1 0 0 / 0.8);
+  stroke-width: 1.2;
+}
+
+.hint-outline {
+  fill: none;
+  stroke: var(--hint);
+  stroke-width: 7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--hint) 70%, transparent));
+  animation: outline-in 400ms ease-out both;
+}
+
+@keyframes outline-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.95;
+  }
+}
+
+.hint-label {
+  fill: var(--hint);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+
+
+
+.panel {
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(8px);
+}
+
+.input-field {
+  width: 100%;
+  background: color-mix(in oklab, var(--background) 70%, var(--card));
+  border: 2px solid color-mix(in oklab, var(--border) 100%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.input-field::placeholder {
+  color: color-mix(in oklab, var(--muted-foreground) 85%, transparent);
+}
+
+.input-field:hover {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+  background: var(--card);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+
+#lovable-badge,
+[lovable-badge] {
+  display: none !important;
+}
