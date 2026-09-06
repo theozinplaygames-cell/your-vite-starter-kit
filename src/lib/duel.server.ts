@@ -10,9 +10,13 @@ const pool = (countriesRaw as unknown as RawCountry[])
   .filter((c) => c.independent && c.area > 2500 && shapeIds.has(c.id))
   .map((c) => c.id);
 
-export const ROUNDS = 5;
+/** Duração de uma partida, em segundos. */
+export const DURATION_SECONDS = 60;
 
-export function pickCountries(n = ROUNDS): string[] {
+/** Quantidade de países sorteados por partida (suficiente para 1 minuto). */
+export const QUESTIONS = 40;
+
+export function pickCountries(n = QUESTIONS): string[] {
   const copy = [...pool];
   const out: string[] = [];
   while (out.length < n && copy.length) {
