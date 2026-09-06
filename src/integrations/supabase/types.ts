@@ -14,13 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      duel_guesses: {
+        Row: {
+          correct: boolean
+          country_id: string
+          created_at: string
+          duel_id: string
+          id: string
+          idx: number
+          player_id: string
+        }
+        Insert: {
+          correct: boolean
+          country_id: string
+          created_at?: string
+          duel_id: string
+          id?: string
+          idx: number
+          player_id: string
+        }
+        Update: {
+          correct?: boolean
+          country_id?: string
+          created_at?: string
+          duel_id?: string
+          id?: string
+          idx?: number
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duel_guesses_duel_id_fkey"
+            columns: ["duel_id"]
+            isOneToOne: false
+            referencedRelation: "duels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duel_players: {
+        Row: {
+          duel_id: string
+          id: string
+          joined_at: string
+          player_id: string
+        }
+        Insert: {
+          duel_id: string
+          id?: string
+          joined_at?: string
+          player_id: string
+        }
+        Update: {
+          duel_id?: string
+          id?: string
+          joined_at?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duel_players_duel_id_fkey"
+            columns: ["duel_id"]
+            isOneToOne: false
+            referencedRelation: "duels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duels: {
+        Row: {
+          code: string
+          countries: string[]
+          created_at: string
+          duration_seconds: number
+          ends_at: string | null
+          host_id: string
+          id: string
+          is_public: boolean
+          max_players: number
+          mode: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          code: string
+          countries?: string[]
+          created_at?: string
+          duration_seconds?: number
+          ends_at?: string | null
+          host_id: string
+          id?: string
+          is_public?: boolean
+          max_players?: number
+          mode?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          code?: string
+          countries?: string[]
+          created_at?: string
+          duration_seconds?: number
+          ends_at?: string | null
+          host_id?: string
+          id?: string
+          is_public?: boolean
+          max_players?: number
+          mode?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_duel_player: {
+        Args: { _duel_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
