@@ -26,11 +26,12 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "code">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [code, setCode] = useState("");
+  const [verifyType, setVerifyType] = useState<"signup" | "email">("signup");
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +66,19 @@ function AuthPage() {
         if (data.session) {
           navigate({ to: "/", replace: true });
         } else {
+          setVerifyType("signup");
           setAwaitingCode(true);
           setMessage("Enviamos um código de 6 dígitos para o seu e-mail.");
         }
+      } else if (mode === "code") {
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false },
+        });
+        if (err) throw err;
+        setVerifyType("email");
+        setAwaitingCode(true);
+        setMessage("Enviamos um código de 6 dígitos para o seu e-mail.");
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
