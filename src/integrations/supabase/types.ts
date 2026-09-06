@@ -14,113 +14,13 @@ export type Database = {
   }
   public: {
     Tables: {
-      duel_guesses: {
-        Row: {
-          correct: boolean
-          country_id: string
-          created_at: string
-          duel_id: string
-          id: string
-          player_id: string
-          round: number
-        }
-        Insert: {
-          correct: boolean
-          country_id: string
-          created_at?: string
-          duel_id: string
-          id?: string
-          player_id: string
-          round: number
-        }
-        Update: {
-          correct?: boolean
-          country_id?: string
-          created_at?: string
-          duel_id?: string
-          id?: string
-          player_id?: string
-          round?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "duel_guesses_duel_id_fkey"
-            columns: ["duel_id"]
-            isOneToOne: false
-            referencedRelation: "duels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      duels: {
-        Row: {
-          code: string
-          countries: string[]
-          created_at: string
-          current_round: number
-          guest_id: string | null
-          host_id: string
-          id: string
-          is_public: boolean
-          status: string
-          updated_at: string
-          winner_id: string | null
-        }
-        Insert: {
-          code: string
-          countries?: string[]
-          created_at?: string
-          current_round?: number
-          guest_id?: string | null
-          host_id: string
-          id?: string
-          is_public?: boolean
-          status?: string
-          updated_at?: string
-          winner_id?: string | null
-        }
-        Update: {
-          code?: string
-          countries?: string[]
-          created_at?: string
-          current_round?: number
-          guest_id?: string | null
-          host_id?: string
-          id?: string
-          is_public?: boolean
-          status?: string
-          updated_at?: string
-          winner_id?: string | null
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          created_at: string
-          id: string
-          username: string
-        }
-        Insert: {
-          created_at?: string
-          id: string
-          username: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          username?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      is_duel_player: {
-        Args: { _duel_id: string; _user_id: string }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
