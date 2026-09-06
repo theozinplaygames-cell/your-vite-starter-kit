@@ -267,7 +267,13 @@ function AuthPage() {
           disabled={busy}
           className="font-display w-full rounded-xl bg-primary px-4 py-3.5 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}
+          {busy
+            ? "Aguarde..."
+            : mode === "signin"
+              ? "Entrar"
+              : mode === "code"
+                ? "Enviar código"
+                : "Criar conta"}
         </button>
 
         <button
@@ -281,13 +287,25 @@ function AuthPage() {
         <button
           type="button"
           onClick={() => {
-            setMode(mode === "signin" ? "signup" : "signin");
+            setMode(mode === "code" ? "signin" : "code");
             setError(null);
             setMessage(null);
           }}
           className="text-sm text-accent underline-offset-4 hover:underline"
         >
-          {mode === "signin" ? "Não tem conta? Criar agora" : "Já tenho conta"}
+          {mode === "code" ? "Entrar com senha" : "Entrar com código (sem senha)"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === "signup" ? "signin" : "signup");
+            setError(null);
+            setMessage(null);
+          }}
+          className="text-sm text-accent underline-offset-4 hover:underline"
+        >
+          {mode === "signup" ? "Já tenho conta" : "Não tem conta? Criar agora"}
         </button>
       </form>
     </main>
