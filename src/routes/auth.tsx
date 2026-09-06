@@ -26,11 +26,12 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "code">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [code, setCode] = useState("");
+  const [verifyType, setVerifyType] = useState<"signup" | "email">("signup");
   const [awaitingCode, setAwaitingCode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +66,19 @@ function AuthPage() {
         if (data.session) {
           navigate({ to: "/", replace: true });
         } else {
+          setVerifyType("signup");
           setAwaitingCode(true);
           setMessage("Enviamos um código de 6 dígitos para o seu e-mail.");
         }
+      } else if (mode === "code") {
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false },
+        });
+        if (err) throw err;
+        setVerifyType("email");
+        setAwaitingCode(true);
+        setMessage("Enviamos um código de 6 dígitos para o seu e-mail.");
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
@@ -89,7 +100,7 @@ function AuthPage() {
       const { error: err } = await supabase.auth.verifyOtp({
         email,
         token: code.trim(),
-        type: "email",
+        type: verifyType,
       });
       if (err) throw err;
       navigate({ to: "/", replace: true });
@@ -105,8 +116,16 @@ function AuthPage() {
     setMessage(null);
     setBusy(true);
     try {
-      const { error: err } = await supabase.auth.resend({ type: "signup", email });
-      if (err) throw err;
+      if (verifyType === "signup") {
+        const { error: err } = await supabase.auth.resend({ type: "signup", email });
+        if (err) throw err;
+      } else {
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: false },
+        });
+        if (err) throw err;
+      }
       setMessage("Enviamos um novo código para o seu e-mail.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível reenviar o código.");
@@ -193,10 +212,12 @@ function AuthPage() {
           ← Atlas Quiz
         </Link>
         <h1 className="font-display mt-2 text-3xl font-bold">
-          {mode === "signin" ? "Entrar" : "Criar conta"}
+          {mode === "signin" ? "Entrar" : mode === "code" ? "Entrar com código" : "Criar conta"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sua conta guarda seu apelido e libera os duelos 1x1.
+          {mode === "code"
+            ? "Receba um código de 6 dígitos no seu e-mail, sem senha."
+            : "Sua conta guarda seu apelido e libera os duelos 1x1."}
         </p>
       </div>
 
@@ -223,18 +244,20 @@ function AuthPage() {
             className="input-field"
           />
         </Field>
-        <Field label="Senha">
-          <input
-            type="password"
-            required
-            minLength={6}
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            placeholder="Mínimo de 6 caracteres"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="input-field"
-          />
-        </Field>
+        {mode !== "code" && (
+          <Field label="Senha">
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              placeholder="Mínimo de 6 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+            />
+          </Field>
+        )}
 
         {error && <p className="text-sm font-medium text-wrong">{error}</p>}
         {message && <p className="text-sm font-medium text-correct">{message}</p>}
@@ -244,7 +267,13 @@ function AuthPage() {
           disabled={busy}
           className="font-display w-full rounded-xl bg-primary px-4 py-3.5 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}
+          {busy
+            ? "Aguarde..."
+            : mode === "signin"
+              ? "Entrar"
+              : mode === "code"
+                ? "Enviar código"
+                : "Criar conta"}
         </button>
 
         <button
@@ -258,13 +287,25 @@ function AuthPage() {
         <button
           type="button"
           onClick={() => {
-            setMode(mode === "signin" ? "signup" : "signin");
+            setMode(mode === "code" ? "signin" : "code");
             setError(null);
             setMessage(null);
           }}
           className="text-sm text-accent underline-offset-4 hover:underline"
         >
-          {mode === "signin" ? "Não tem conta? Criar agora" : "Já tenho conta"}
+          {mode === "code" ? "Entrar com senha" : "Entrar com código (sem senha)"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === "signup" ? "signin" : "signup");
+            setError(null);
+            setMessage(null);
+          }}
+          className="text-sm text-accent underline-offset-4 hover:underline"
+        >
+          {mode === "signup" ? "Já tenho conta" : "Não tem conta? Criar agora"}
         </button>
       </form>
     </main>
