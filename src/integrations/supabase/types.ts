@@ -52,35 +52,6 @@ export type Database = {
           },
         ]
       }
-      duel_players: {
-        Row: {
-          duel_id: string
-          id: string
-          joined_at: string
-          player_id: string
-        }
-        Insert: {
-          duel_id: string
-          id?: string
-          joined_at?: string
-          player_id: string
-        }
-        Update: {
-          duel_id?: string
-          id?: string
-          joined_at?: string
-          player_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "duel_players_duel_id_fkey"
-            columns: ["duel_id"]
-            isOneToOne: false
-            referencedRelation: "duels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       duels: {
         Row: {
           code: string
@@ -93,6 +64,7 @@ export type Database = {
           is_public: boolean
           max_players: number
           mode: string
+          player_ids: string[]
           started_at: string | null
           status: string
           updated_at: string
@@ -109,6 +81,7 @@ export type Database = {
           is_public?: boolean
           max_players?: number
           mode?: string
+          player_ids?: string[]
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -125,6 +98,7 @@ export type Database = {
           is_public?: boolean
           max_players?: number
           mode?: string
+          player_ids?: string[]
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -155,9 +129,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_duel_player: {
+      join_duel: {
         Args: { _duel_id: string; _user_id: string }
-        Returns: boolean
+        Returns: string
       }
     }
     Enums: {
