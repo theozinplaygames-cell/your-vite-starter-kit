@@ -201,21 +201,28 @@ function Game() {
               {target?.name ?? "..."}
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
-              {finished
-                ? result?.ok
-                  ? `Acertou! +${POINTS[hints]!} pontos.`
-                  : `Errou. O país estava marcado em verde.`
-                : selected
-                  ? "País selecionado. Confirme sua resposta."
-                  : "Clique em um país no mapa."}
+              {gameOver
+                ? `Fim de jogo! Você chegou a ${GOAL} acertos${mode === "anos" ? ` e voltou até o ano ${year}` : ""}.`
+                : finished
+                  ? result?.ok
+                    ? `Acertou! +${POINTS[hints]!} pontos.${
+                        mode === "anos" && hits % 5 === 0
+                          ? ` O mundo voltou 100 anos: ${year}.`
+                          : ""
+                      }`
+                    : `Errou. O país estava marcado em verde.`
+                  : selected
+                    ? "País selecionado. Confirme sua resposta."
+                    : "Clique em um país no mapa."}
             </p>
             <button
-              onClick={finished ? next : check}
-              disabled={!finished && !selected}
+              onClick={gameOver ? () => restart(mode) : finished ? next : check}
+              disabled={!gameOver && !finished && !selected}
               className="font-display mt-4 w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {finished ? "Próximo país" : "Checar"}
+              {gameOver ? "Jogar de novo" : finished ? "Próximo país" : "Checar"}
             </button>
+
             {finished && (
               <div
                 className={`mt-3 rounded-xl border px-3 py-2 text-sm ${
