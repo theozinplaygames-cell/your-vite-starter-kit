@@ -33,6 +33,8 @@ export const Route = createFileRoute("/")({
 });
 
 const POINTS = [100, 70, 40, 20];
+const GOAL = 10;
+const START_YEAR = 2026;
 
 function pick(exclude?: string): CountryMeta {
   let c = quizPool[Math.floor(Math.random() * quizPool.length)]!;
@@ -41,8 +43,10 @@ function pick(exclude?: string): CountryMeta {
 }
 
 type Result = { ok: boolean; guessId: string } | null;
+type Mode = "normal" | "anos";
 
 function Game() {
+  const [mode, setMode] = useState<Mode>("normal");
   const [target, setTarget] = useState<CountryMeta | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [hints, setHints] = useState(0);
@@ -50,6 +54,7 @@ function Game() {
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(1);
   const [streak, setStreak] = useState(0);
+  const [hits, setHits] = useState(0);
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
@@ -72,6 +77,18 @@ function Game() {
     setRound((r) => r + 1);
   }, []);
 
+  const restart = useCallback((m: Mode) => {
+    setMode(m);
+    setTarget(pick());
+    setSelected(null);
+    setHints(0);
+    setResult(null);
+    setScore(0);
+    setStreak(0);
+    setHits(0);
+    setRound((r) => r + 1);
+  }, []);
+
   const check = () => {
     if (!target || !selected || result) return;
     const ok = selected === target.id;
@@ -79,10 +96,15 @@ function Game() {
     if (ok) {
       setScore((s) => s + POINTS[hints]!);
       setStreak((s) => s + 1);
+      setHits((h) => h + 1);
     } else {
       setStreak(0);
     }
   };
+
+  const year = START_YEAR - Math.floor(hits / 5) * 100;
+  const gameOver = hits >= GOAL;
+
 
   const hintList = target
     ? [
