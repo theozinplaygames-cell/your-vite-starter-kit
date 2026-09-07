@@ -148,10 +148,33 @@ function Game() {
             {signedIn ? "Duelo 1x1" : "Entrar para duelar"}
           </Link>
           <Stat label="Pontos" value={score} />
-          <Stat label="Rodada" value={round} />
+          <Stat label="Acertos" value={`${hits}/${GOAL}`} />
+          {mode === "anos" && <Stat label="Ano" value={year} />}
           <Stat label="Sequência" value={streak} />
         </div>
       </header>
+
+      <div className="flex flex-wrap gap-2">
+        {(["normal", "anos"] as Mode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => restart(m)}
+            className={`font-display rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+              mode === m
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted-foreground hover:bg-secondary/40"
+            }`}
+          >
+            {m === "normal" ? "Modo normal" : "Modo dos anos"}
+          </button>
+        ))}
+        <p className="self-center text-xs text-muted-foreground">
+          {mode === "anos"
+            ? `A cada 5 acertos o mundo volta 100 anos. Partida termina com ${GOAL} acertos.`
+            : `Partida termina com ${GOAL} acertos.`}
+        </p>
+      </div>
+
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <section className="panel overflow-hidden p-2">
