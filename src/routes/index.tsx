@@ -269,7 +269,7 @@ function Game() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="panel px-4 py-2 text-center">
       <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
